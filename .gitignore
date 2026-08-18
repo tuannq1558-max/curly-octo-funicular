@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Java
 target/
 *.class
@@ -28,3 +29,6 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+=======
+
+>>>>>>> febe9cc9fb95bd35e600e262e3cf40b2feaa6c2d
