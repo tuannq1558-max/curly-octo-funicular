@@ -21,7 +21,7 @@ public class AuthService {
         String passwordHash = passwordEncoder.encode(password);
         User user = new User();
         user.setEmail(email);
-        user.setPasswordHash(passwordhash);
+        user.setPasswordHash(passwordHash);
 
         return userRepository.save(user);
 
