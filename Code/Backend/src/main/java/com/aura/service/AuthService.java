@@ -7,23 +7,39 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AuthService {
-    private final UserRepository userRepository; // final: 1 khi constructor da gan thi se khong gan vao repo nao nua
+
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;}
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public User register(String email, String password) {
-        if(userRepository.findByEmail(email).isPresent()){
+
+        if (userRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("Email already exists");
         }
+
         String passwordHash = passwordEncoder.encode(password);
+
         User user = new User();
         user.setEmail(email);
         user.setPasswordHash(passwordHash);
 
         return userRepository.save(user);
+    }
 
+    public User login(String email, String password) {
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Wrong password");
+        }
+
+        return user;
     }
 }
