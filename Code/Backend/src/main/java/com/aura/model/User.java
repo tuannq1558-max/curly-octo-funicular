@@ -1,35 +1,40 @@
 package com.aura.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Table;
-
-
+import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "users")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // ham tu dong tao id cho tung user
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(unique = true, nullable = false) // email la doc nhat, ko duoc trung, cung khong duoc bo trong
-    private String email;
-    @Column(nullable = false) // hash password
-    private String passwordHash;
-    public String getEmail(){
-        return email;
-    }
-    public void setEmail(String email){
-        this.email = email;
-    }
 
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-    public String getPasswordHash() {
-        return passwordHash;
-    }
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @JsonIgnore
+    @Column(nullable = false)
+    private String passwordHash;
+
+    @Column(nullable = false, length = 160)
+    private String fullName;
+
+    @Column(nullable = false, length = 20)
+    private String role = "PATIENT";
+
+    @Column(nullable = false)
+    private boolean enabled = true;
+
+    public Long getId() { return id; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

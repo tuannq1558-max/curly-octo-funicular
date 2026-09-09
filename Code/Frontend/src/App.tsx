@@ -1,469 +1,54 @@
 import { useEffect, useState } from "react";
-import Auth from "./Auth";
-import {
-    Activity,
-    BarChart3,
-    Bell,
-    FileText,
-    History as HistoryIcon,
-    Home,
-    ImagePlus,
-    Menu,
-    MessageSquare,
-    ShieldCheck,
-    UploadCloud,
-    Users,
-    X,
-} from "lucide-react";
+import Auth, { SessionUser } from "./Auth";
+import { Activity, Bell, Building2, FileText, History as HistoryIcon, Home, ImagePlus, Menu, ShieldCheck, UploadCloud, Stethoscope, Users, X } from "lucide-react";
+import { clinicDashboard, clinicMembers, pendingReviews, patientAssessments, patientImages, submitAssessment, uploadImage, addClinicMember, updateMemberStatus } from "./api";
 
-import { analyze, history } from "./api";
+type Page = "Dashboard" | "New Analysis" | "History" | "Clinic Dashboard" | "Doctor Reviews";
 
-type Page = "Dashboard" | "New Analysis" | "History";
-
-type AnalysisResult = {
-    riskLevel: string;
-    riskScore: number;
-    explanation: string;
-    modelVersion: string;
-    findings?: string[];
-};
-
-type HistoryItem = {
-    id?: string | number;
-    createdAt: string;
-    filename: string;
-    riskLevel: string;
-    riskScore: number;
-    modelVersion: string;
-};
+type ImageItem = { id:number; fileName:string; status:string; uploadedAt:string; patient?: {id:number;fullName:string;email:string} };
+type Assessment = { id:number; image:ImageItem; doctor:{id:number;fullName:string}; riskLevel:string; finding:string; diagnosis:string; recommendation:string; note:string; assessedAt:string };
 
 export default function App() {
-    const [loggedIn, setLoggedIn] = useState(false);
-    const [page, setPage] = useState<Page>("Dashboard");
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-
-    if (!loggedIn) {
-        return <Auth onLogin={() => setLoggedIn(true)} />;
-    }
-    return (
-        <div className="app">
-            <aside className={`side ${sidebarOpen ? "open" : ""}`}>
-                <div className="brand">
-                    <Activity />
-                    <b>AURA</b>
-                    <small>Retinal Health AI</small>
-                </div>
-
-                <Nav
-                    icon={<Home />}
-                    label="Dashboard"
-                    active={page === "Dashboard"}
-                    onClick={() => setPage("Dashboard")}
-                />
-
-                <Nav
-                    icon={<ImagePlus />}
-                    label="New Analysis"
-                    active={page === "New Analysis"}
-                    onClick={() => setPage("New Analysis")}
-                />
-
-                <Nav
-                    icon={<HistoryIcon />}
-                    label="Analysis History"
-                    active={page === "History"}
-                    onClick={() => setPage("History")}
-                />
-
-                <Nav
-                    icon={<MessageSquare />}
-                    label="Messages"
-                    onClick={() => {}}
-                />
-
-                <div className="protect">
-                    <ShieldCheck />
-
-                    <span>
-            <b>Protected health data</b>
-            <small>Secure & private</small>
-          </span>
-                </div>
-            </aside>
-
-            <main>
-                <header>
-                    <button
-                        className="hamb"
-                        onClick={() => setSidebarOpen((value) => !value)}
-                        aria-label="Toggle navigation"
-                    >
-                        {sidebarOpen ? <X /> : <Menu />}
-                    </button>
-
-                    <span>
-            Patient Portal / <b>{page}</b>
-          </span>
-
-                    <div className="user">
-                        <span>TN&nbsp; Tú Nguyễn</span>
-                        <Bell size={18} />
-                    </div>
-                </header>
-
-                <div className="content">
-                    {page === "Dashboard" && <Dashboard onNavigate={setPage} />}
-                    {page === "New Analysis" && <NewAnalysis />}
-                    {page === "History" && <History />}
-                </div>
-            </main>
-        </div>
-    );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Navigation                                                                */
-/* -------------------------------------------------------------------------- */
-
-type NavProps = {
-    icon: React.ReactNode;
-    label: string;
-    active?: boolean;
-    onClick: () => void;
-};
-
-function Nav({ icon, label, active = false, onClick }: NavProps) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`nav ${active ? "active" : ""}`}
-        >
-            {icon}
-            <span>{label}</span>
-        </button>
-    );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Dashboard                                                                  */
-/* -------------------------------------------------------------------------- */
-
-type DashboardProps = {
-    onNavigate: (page: Page) => void;
-};
-
-function Dashboard({ onNavigate }: DashboardProps) {
-    return (
-        <>
-            <section className="hero">
-                <div>
-                    <small>AI-ASSISTED SCREENING</small>
-
-                    <h1>Good evening, Tú.</h1>
-
-                    <p>
-                        Review your retinal health and keep track of your screening
-                        history.
-                    </p>
-
-                    <button
-                        type="button"
-                        onClick={() => onNavigate("New Analysis")}
-                    >
-                        + Start new analysis
-                    </button>
-                </div>
-
-                <Activity size={100} />
-            </section>
-
-            <div className="stats">
-                <Stat
-                    icon={<Activity />}
-                    title="Total screenings"
-                    value="12"
-                />
-
-                <Stat
-                    icon={<BarChart3 />}
-                    title="Latest risk score"
-                    value="18%"
-                />
-
-                <Stat
-                    icon={<FileText />}
-                    title="Reports available"
-                    value="9"
-                />
-
-                <Stat
-                    icon={<Users />}
-                    title="Doctor consultations"
-                    value="3"
-                />
+    const [user,setUser] = useState<SessionUser | null>(() => {
+        const raw=localStorage.getItem("auraUser"); return raw ? JSON.parse(raw) : null;
+    });
+    const [page,setPage]=useState<Page>(user?.role === "DOCTOR" ? "Doctor Reviews" : user?.role === "CLINIC" ? "Clinic Dashboard" : "Dashboard");
+    const [sidebarOpen,setSidebarOpen]=useState(false);
+    if (!user) return <Auth onLogin={u=>{setUser(u);setPage(u.role === "DOCTOR" ? "Doctor Reviews" : "Dashboard")}}/>;
+    const logout=()=>{localStorage.removeItem("auraUser");setUser(null)};
+    return <div className="app">
+        <aside className={`side ${sidebarOpen?"open":""}`}>
+            <div className="brand"><Activity/><b>AURA</b><small>Retinal Health Screening</small></div>
+            {user.role === "PATIENT" && <>
+                <Nav icon={<Home/>} label="Dashboard" active={page==="Dashboard"} onClick={()=>setPage("Dashboard")}/>
+                <Nav icon={<ImagePlus/>} label="Upload retinal image" active={page==="New Analysis"} onClick={()=>setPage("New Analysis")}/>
+                <Nav icon={<HistoryIcon/>} label="My results" active={page==="History"} onClick={()=>setPage("History")}/>
+            </>}
+            {user.role === "DOCTOR" && <Nav icon={<Stethoscope/>} label="Doctor Reviews" active={page==="Doctor Reviews"} onClick={()=>setPage("Doctor Reviews")}/>} 
+            {user.role === "CLINIC" && <Nav icon={<Building2/>} label="Clinic Dashboard" active={page==="Clinic Dashboard"} onClick={()=>setPage("Clinic Dashboard")}/>} 
+            <div className="protect"><ShieldCheck/><span><b>Protected health data</b><small>Secure & private</small></span></div>
+        </aside>
+        <main><header><button className="hamb" onClick={()=>setSidebarOpen(v=>!v)}>{sidebarOpen?<X/>:<Menu/>}</button><span>AURA / <b>{page}</b></span><div className="user"><span>{user.fullName}</span><Bell size={18}/><button className="logout" onClick={logout}>Sign out</button></div></header>
+            <div className="content">
+                {user.role === "PATIENT" && page === "Dashboard" && <PatientDashboard user={user} go={setPage}/>} 
+                {user.role === "PATIENT" && page === "New Analysis" && <UploadPage user={user}/>} 
+                {user.role === "PATIENT" && page === "History" && <PatientHistory user={user}/>} 
+                {user.role === "DOCTOR" && page === "Doctor Reviews" && <DoctorDashboard user={user}/>} 
+                {user.role === "CLINIC" && page === "Clinic Dashboard" && <ClinicPage/>}
             </div>
-
-            <section className="panel">
-                <h2>Latest analysis</h2>
-
-                <div className="result">
-                    <div className="eye">RETINA</div>
-
-                    <div>
-                        <b>Retinal vascular screening</b>
-
-                        <p>18 Aug 2026 · retina_018.jpg</p>
-
-                        <span className="low">LOW RISK · 18%</span>
-
-                        <p>
-                            No major vascular abnormality detected by the screening model.
-                        </p>
-                    </div>
-                </div>
-            </section>
-        </>
-    );
+        </main>
+    </div>
 }
 
-type StatProps = {
-    icon: React.ReactNode;
-    title: string;
-    value: string;
-};
+function Nav({icon,label,active,onClick}:{icon:React.ReactNode;label:string;active?:boolean;onClick:()=>void}){return <button className={`nav ${active?"active":""}`} onClick={onClick}>{icon}<span>{label}</span></button>}
 
-function Stat({ icon, title, value }: StatProps) {
-    return (
-        <div className="stat">
-            {icon}
+function PatientDashboard({user,go}:{user:SessionUser;go:(p:Page)=>void}){return <><section className="hero"><div><small>RETINAL HEALTH SCREENING</small><h1>Welcome, {user.fullName}.</h1><p>Upload your retinal image and receive a review from a healthcare professional.</p><button onClick={()=>go("New Analysis")}>+ Upload retinal image</button></div><Activity size={95}/></section><div className="stats"><Stat icon={<FileText/>} title="My screenings" value="—"/><Stat icon={<ShieldCheck/>} title="Review status" value="Doctor review"/><Stat icon={<Users/>} title="Doctor" value="Assigned"/><Stat icon={<HistoryIcon/>} title="Results" value="View history"/></div><section className="panel"><h2>How it works</h2><div className="steps"><div><b>1</b><span>Upload your retinal image</span></div><div><b>2</b><span>Doctor reviews the image</span></div><div><b>3</b><span>You receive the assessment</span></div></div></section></>}
+function Stat({icon,title,value}:{icon:React.ReactNode;title:string;value:string}){return <div className="stat">{icon}<span>{title}<b>{value}</b></span></div>}
 
-            <span>
-        {title}
-                <b>{value}</b>
-      </span>
-        </div>
-    );
-}
+function UploadPage({user}:{user:SessionUser}){const[file,setFile]=useState<File|null>(null);const[done,setDone]=useState<ImageItem|null>(null);const[busy,setBusy]=useState(false);const[error,setError]=useState("");async function run(){if(!file)return;setBusy(true);setError("");try{setDone(await uploadImage(file,user.id));}catch(e:any){setError(e.message)}finally{setBusy(false)}}return <><div className="title"><h1>Upload retinal image</h1><p>Your image will be stored securely and sent to a doctor for review.</p></div><div className="grid"><section className="upload"><UploadCloud size={42}/><h2>{file?file.name:"Choose retinal image"}</h2><p>JPG or PNG · maximum 20 MB</p><input id="retina" hidden type="file" accept="image/jpeg,image/png" onChange={e=>{setFile(e.target.files?.[0]||null);setDone(null)}}/><label htmlFor="retina">Choose image</label>{file&&<button onClick={run} disabled={busy}>{busy?"Uploading...":"Upload for doctor review"}</button>}{error&&<div className="error">{error}</div>}{done&&<div className="success">Uploaded successfully. Status: {done.status}</div>}</section><section className="panel"><h2>Review process</h2><p>✓ Image is saved in your patient record.</p><p>✓ Doctor can review the original image.</p><p>✓ Doctor records risk level and assessment.</p><p>✓ You can view the completed result in My results.</p><small>No automated AI assessment is used in this workflow.</small></section></div></>}
 
-/* -------------------------------------------------------------------------- */
-/* New Analysis                                                               */
-/* -------------------------------------------------------------------------- */
+function PatientHistory({user}:{user:SessionUser}){const[images,setImages]=useState<ImageItem[]>([]);const[assess,setAssess]=useState<Assessment[]>([]);useEffect(()=>{Promise.all([patientImages(user.id),patientAssessments(user.id)]).then(([a,b])=>{setImages(a);setAssess(b)}).catch(()=>{})},[user.id]);return <><div className="title"><h1>My results</h1><p>Uploaded images and doctor assessments.</p></div><section className="panel"><h2>Uploaded images</h2><table><thead><tr><th>File</th><th>Uploaded</th><th>Status</th></tr></thead><tbody>{images.map(x=><tr key={x.id}><td>{x.fileName}</td><td>{new Date(x.uploadedAt).toLocaleString()}</td><td><span className={x.status==="COMPLETED"?"low":"medium"}>{x.status}</span></td></tr>)}</tbody></table>{images.length===0&&<p>No images uploaded yet.</p>}</section><section className="panel"><h2>Doctor assessments</h2>{assess.map(a=><div className="assessment" key={a.id}><b>{a.image.fileName} · <span className={a.riskLevel.toLowerCase()}>{a.riskLevel}</span></b><p><strong>Doctor:</strong> {a.doctor.fullName}</p><p><strong>Finding:</strong> {a.finding}</p><p><strong>Assessment:</strong> {a.diagnosis}</p><p><strong>Recommendation:</strong> {a.recommendation}</p><p><strong>Note:</strong> {a.note}</p></div>)}{assess.length===0&&<p>No doctor assessment yet.</p>}</section></>}
 
-function NewAnalysis() {
-    const [file, setFile] = useState<File | null>(null);
-    const [result, setResult] = useState<AnalysisResult | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+function DoctorDashboard({user}:{user:SessionUser}){const[items,setItems]=useState<ImageItem[]>([]);const[selected,setSelected]=useState<ImageItem|null>(null);const[risk,setRisk]=useState("MEDIUM");const[finding,setFinding]=useState("");const[diagnosis,setDiagnosis]=useState("");const[recommendation,setRecommendation]=useState("");const[note,setNote]=useState("");const[message,setMessage]=useState("");const load=()=>pendingReviews().then(setItems).catch(()=>setMessage("Cannot load pending reviews"));useEffect(() => { load(); }, []);async function submit(){if(!selected)return;try{await submitAssessment(selected.id,{doctorId:user.id,riskLevel:risk,finding,diagnosis,recommendation,note});setMessage("Assessment saved.");setSelected(null);setFinding("");setDiagnosis("");setRecommendation("");setNote("");load()}catch(e:any){setMessage(e.message)}}return <><div className="title"><h1>Doctor Review</h1><p>Review retinal images and record the clinical assessment.</p></div>{message&&<div className="success">{message}</div>}<div className="doctor-grid"><section className="panel"><h2>Pending reviews</h2>{items.map(i=><button className={`review-item ${selected?.id===i.id?"selected":""}`} key={i.id} onClick={()=>setSelected(i)}><b>{i.patient?.fullName||"Patient"}</b><span>{i.fileName}</span><small>{new Date(i.uploadedAt).toLocaleString()}</small></button>)}{items.length===0&&<p>No pending reviews.</p>}</section>{selected&&<section className="panel"><h2>Clinical assessment</h2><div className="image-preview actual-image"><img src={`http://localhost:8080/api/images/${selected.id}/file`} alt="Retinal image"/><small>{selected.fileName}</small></div><label>Risk level</label><select value={risk} onChange={e=>setRisk(e.target.value)}><option>LOW</option><option>MEDIUM</option><option>HIGH</option></select><label>Finding</label><textarea value={finding} onChange={e=>setFinding(e.target.value)} placeholder="Describe findings..."/><label>Assessment</label><textarea value={diagnosis} onChange={e=>setDiagnosis(e.target.value)} placeholder="Clinical assessment..."/><label>Recommendation</label><textarea value={recommendation} onChange={e=>setRecommendation(e.target.value)} placeholder="Recommended next steps..."/><label>Doctor note</label><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Additional note..."/><button className="doctor-submit" onClick={submit}>Save assessment</button></section>}</div></>}
 
-    const handleFileChange = (
-        event: React.ChangeEvent<HTMLInputElement>,
-    ) => {
-        const selectedFile = event.target.files?.[0] ?? null;
-
-        setFile(selectedFile);
-        setResult(null);
-        setError("");
-    };
-
-    const handleAnalyze = async () => {
-        if (!file) return;
-
-        setLoading(true);
-        setError("");
-        setResult(null);
-
-        try {
-            const data = await analyze(file);
-            setResult(data);
-        } catch (error) {
-            setError(
-                error instanceof Error
-                    ? error.message
-                    : "Analysis failed. Please try again.",
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <>
-            <div className="title">
-                <h1>New retinal analysis</h1>
-
-                <p>
-                    Upload a clear fundus image for AI-assisted screening.
-                </p>
-            </div>
-
-            <div className="grid">
-                <section className="upload">
-                    <UploadCloud size={42} />
-
-                    <h2>{file ? file.name : "Upload retinal image"}</h2>
-
-                    <p>JPG or PNG · maximum 20 MB</p>
-
-                    <input
-                        id="retinal-file"
-                        hidden
-                        type="file"
-                        accept="image/jpeg,image/png"
-                        onChange={handleFileChange}
-                    />
-
-                    <label htmlFor="retinal-file">Choose image</label>
-
-                    {file && (
-                        <button
-                            type="button"
-                            onClick={handleAnalyze}
-                            disabled={loading}
-                        >
-                            {loading ? "Analyzing..." : "Analyze image"}
-                        </button>
-                    )}
-
-                    {error && <div className="error">{error}</div>}
-                </section>
-
-                {result ? (
-                    <AnalysisResult result={result} />
-                ) : (
-                    <UploadGuidelines />
-                )}
-            </div>
-        </>
-    );
-}
-
-type AnalysisResultProps = {
-    result: AnalysisResult;
-};
-
-function AnalysisResult({ result }: AnalysisResultProps) {
-    const score = Math.round(result.riskScore * 100);
-
-    return (
-        <section className="panel">
-            <h2>AI analysis result</h2>
-
-            <div className="risk">
-                {result.riskLevel}
-
-                <b>{score}%</b>
-            </div>
-
-            <p>{result.explanation}</p>
-
-            <p>
-                <b>Model:</b> {result.modelVersion}
-            </p>
-
-            <hr />
-
-            <b>Findings</b>
-
-            <p>{result.findings?.join(" ") || "No findings reported."}</p>
-
-            <small>
-                Screening support only — not a medical diagnosis.
-            </small>
-        </section>
-    );
-}
-
-function UploadGuidelines() {
-    return (
-        <section className="panel">
-            <h2>Before you upload</h2>
-
-            <p>✓ Use a clear, focused retinal image</p>
-            <p>✓ Ensure the optic disc is visible</p>
-            <p>✓ Remove personal information from the image</p>
-            <p>✓ Clinical review is recommended</p>
-        </section>
-    );
-}
-
-/* -------------------------------------------------------------------------- */
-/* History                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function History() {
-    const [data, setData] = useState<HistoryItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-
-    useEffect(() => {
-        const loadHistory = async () => {
-            try {
-                const result = await history();
-                setData(result);
-            } catch {
-                setError("Cannot load analysis history.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadHistory();
-    }, []);
-
-    return (
-        <>
-            <div className="title">
-                <h1>Analysis history</h1>
-
-                <p>Previous retinal screening results.</p>
-            </div>
-
-            <section className="panel">
-                {loading && <p>Loading history...</p>}
-
-                {error && <div className="error">{error}</div>}
-
-                {!loading && !error && data.length > 0 && (
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Image</th>
-                            <th>Risk</th>
-                            <th>Score</th>
-                            <th>Model</th>
-                        </tr>
-                        </thead>
-
-                        <tbody>
-                        {data.map((item) => (
-                            <tr key={item.id ?? `${item.createdAt}-${item.filename}`}>
-                                <td>
-                                    {new Date(item.createdAt).toLocaleString()}
-                                </td>
-
-                                <td>{item.filename}</td>
-
-                                <td>
-                    <span className={item.riskLevel.toLowerCase()}>
-                      {item.riskLevel}
-                    </span>
-                                </td>
-
-                                <td>{Math.round(item.riskScore * 100)}%</td>
-
-                                <td>{item.modelVersion}</td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                )}
-
-                {!loading && !error && data.length === 0 && (
-                    <p>No analyses yet. Upload your first image.</p>
-                )}
-            </section>
-        </>
-    );
-}
+function ClinicPage(){const[data,setData]=useState<any|null>(null);const[members,setMembers]=useState<any[]>([]);const[filter,setFilter]=useState("ALL");const[form,setForm]=useState({fullName:"",email:"",role:"PATIENT"});const load=()=>Promise.all([clinicDashboard(1),clinicMembers(1)]).then(([d,m])=>{setData(d);setMembers(m)});useEffect(() => { load().catch(() => {}); }, []);async function add(){await addClinicMember(1,form);setForm({fullName:"",email:"",role:"PATIENT"});load()}async function toggle(id:number,status:string){await updateMemberStatus(id,status);load()}const visible=filter==="ALL"?members:members.filter(m=>m.role===filter);return <><div className="title"><h1>Clinic Dashboard</h1><p>Manage clinic members and screening workflow.</p></div>{data&&<><section className="panel clinic-banner"><div><small>CLINIC</small><h2>{data.clinic.name}</h2><p>{data.clinic.address}</p><span>License: {data.clinic.licenseNumber}</span></div><Building2 size={52}/></section><div className="stats"><Stat icon={<Users/>} title="Patients" value={String(data.totalPatients)}/><Stat icon={<Stethoscope/>} title="Doctors" value={String(data.totalDoctors)}/><Stat icon={<ShieldCheck/>} title="Active members" value={String(data.activeMembers)}/><Stat icon={<FileText/>} title="Images this month" value={String(data.imagesThisMonth)}/></div></>}<section className="panel"><div className="section-head"><div><h2>Clinic members</h2><p>Doctors and patients registered with this clinic.</p></div><div className="filters">{["ALL","DOCTOR","PATIENT"].map(x=><button className={`filter ${filter===x?"active":""}`} onClick={()=>setFilter(x)} key={x}>{x}</button>)}</div></div><div className="add-member"><input placeholder="Full name" value={form.fullName} onChange={e=>setForm({...form,fullName:e.target.value})}/><input placeholder="Email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/><select value={form.role} onChange={e=>setForm({...form,role:e.target.value})}><option>DOCTOR</option><option>PATIENT</option></select><button className="doctor-submit" onClick={add}>Add</button></div><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(m=><tr key={m.id}><td>{m.fullName}</td><td>{m.email}</td><td><span className="role-tag">{m.role}</span></td><td>{m.status}</td><td><button className="view-button" onClick={()=>toggle(m.id,m.status==="ACTIVE"?"DISABLED":"ACTIVE")}>{m.status==="ACTIVE"?"Disable":"Enable"}</button></td></tr>)}</tbody></table></section></>}

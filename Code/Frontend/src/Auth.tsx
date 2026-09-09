@@ -1,151 +1,68 @@
 import { useState } from "react";
-import { login,register } from "./api";
+import { login, register } from "./api";
 
-type AuthProps = {
-    onLogin: () => void;
+export type SessionUser = {
+    id: number;
+    email: string;
+    fullName: string;
+    role: "PATIENT" | "DOCTOR" | "CLINIC" | "ADMIN";
 };
 
+type AuthProps = { onLogin: (user: SessionUser) => void };
+
 export default function Auth({ onLogin }: AuthProps) {
+    const [isRegister, setIsRegister] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [fullName, setFullName] = useState("");
     const [error, setError] = useState("");
-    const [isRegister, setIsRegister] = useState(false);
     const [success, setSuccess] = useState("");
 
-    async function handleLogin(e: React.FormEvent) {
+    async function submit(e: React.FormEvent) {
         e.preventDefault();
-        setError("");
-
+        setError(""); setSuccess("");
         try {
-            await login(email, password);
-            onLogin();
+            if (isRegister) {
+                await register(email, password, fullName);
+                setSuccess("Account created. You can now log in.");
+                setIsRegister(false);
+                setPassword("");
+            } else {
+                const user = await login(email, password);
+                localStorage.setItem("auraUser", JSON.stringify(user));
+                onLogin(user);
+            }
         } catch (err) {
-            setError("Email hoặc mật khẩu không đúng");
-        }
-    }
-
-    async function handleRegister(e: React.FormEvent) {
-        e.preventDefault();
-        setError("");
-        setSuccess("");
-
-        try {
-            await register(email, password);
-
-            setSuccess("Registration successful. You can now login.");
-
-            setIsRegister(false);
-            setPassword("");
-        } catch (err) {
-            setError("Email đã tồn tại hoặc đăng ký thất bại");
+            setError(err instanceof Error ? err.message : "Request failed");
         }
     }
 
     return (
-        <div style={{
-            minHeight: "100vh",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            background: "#f4f9f8"
-        }}>
-            <form
-                onSubmit={isRegister ? handleRegister : handleLogin}
-                style={{
-                    width: "380px",
-                    padding: "40px",
-                    background: "white",
-                    borderRadius: "20px",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.1)"
-                }}
-            >
-                <h1 style={{ color: "#087f73" }}>AURA</h1>
-
-                <h2>{isRegister ? "Create account" : "Welcome back"}</h2>
-
-                <p>
-                    {isRegister
-                        ? "Create your patient account"
-                        : "Login to your patient portal"}
-                </p>
-
-                <label>Email</label>
-                <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email"
-                    required
-                    style={{
-                        width: "100%",
-                        padding: "12px",
-                        margin: "8px 0 20px"
-                    }}
-                />
-
-                <label>Password</label>
-                <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password"
-                    required
-                    style={{
-                        width: "100%",
-                        padding: "12px",
-                        margin: "8px 0 20px"
-                    }}
-                />
-
-                {error && (
-                    <p style={{ color: "red" }}>
-                        {error}
-                    </p>
-                )}
-                {success && (
-                    <p style={{ color: "green" }}>
-                        {success}
-                    </p>
-                )}
-
-                <button
-                    type="submit"
-                    style={{
-                        width: "100%",
-                        padding: "14px",
-                        background: "#087f73",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "10px",
-                        fontSize: "16px",
-                        cursor: "pointer"
-                    }}
-                >
-                    {isRegister ? "Create account" : "Login"}
+        <div className="auth-page">
+            <form className="auth-card" onSubmit={submit}>
+                <div className="auth-brand">AURA</div>
+                <h1>{isRegister ? "Create account" : "Welcome back"}</h1>
+                <p>{isRegister ? "Create your patient account" : "Login to your AURA portal"}</p>
+                {isRegister && <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" required />}
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required minLength={6} />
+                {error && <div className="error">{error}</div>}
+                {success && <div className="success">{success}</div>}
+                <button type="submit">{isRegister ? "Create account" : "Login"}</button>
+                <div className="demo-note">
+                    <b>Demo accounts</b><br />
+                    Doctor: <b>doctor@aura.vn</b> / <b>doctor123</b><br />
+                    Clinic: <b>clinic@aura.vn</b> / <b>clinic123</b>
+                </div>
+                <button type="button" className="auth-switch" onClick={() => {setIsRegister(!isRegister);setError("");setSuccess("");}}>
+                    {isRegister ? "Already have an account? Login" : "Don't have an account? Register"}
                 </button>
-                <p style={{ textAlign: "center", marginTop: "20px" }}>
-                    {isRegister ? "Already have an account?" : "Don't have an account?"}
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setIsRegister(!isRegister);
-                            setError("");
-                            setSuccess("");
-                        }}
-                        style={{
-                            marginLeft: "8px",
-                            background: "none",
-                            border: "none",
-                            color: "#087f73",
-                            cursor: "pointer",
-                            fontWeight: "bold"
-                        }}
-                    >
-                        {isRegister ? "Login" : "Register"}
-                    </button>
-                </p>
-
+                {!isRegister && (
+                    <div className="demo-actions">
+                        <button type="button" className="demo-button" onClick={() => { setEmail("clinic@aura.vn"); setPassword("clinic123"); }}>Use clinic</button>
+                        <button type="button" className="demo-button" onClick={() => { setEmail("doctor@aura.vn"); setPassword("doctor123"); }}>Use doctor</button>
+                    </div>
+                )}
             </form>
         </div>
     );
