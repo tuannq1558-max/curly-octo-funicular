@@ -4,6 +4,7 @@ import com.aura.model.User;
 import com.aura.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -80,5 +81,21 @@ public class AuthController {
                             "message", e.getMessage()
                     ));
         }
+    }
+
+    // =========================
+    // CURRENT USER
+    // =========================
+    @GetMapping("/me")
+    public ResponseEntity<?> me(Authentication authentication) {
+
+        User user = (User) authentication.getPrincipal();
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "email", user.getEmail(),
+                        "role", user.getRole().name()
+                )
+        );
     }
 }
