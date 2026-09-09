@@ -1,29 +1,84 @@
 package com.aura.controller;
-import org.springframework.web.bind.annotation.*;
-import java.util.*;
-import com.aura.service.AuthService;
 
+import com.aura.model.User;
+import com.aura.service.AuthService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-     @PostMapping("/login")
-     public Map<String,String> login(@RequestBody Map<String,String> req){
-       return Map.of(
-               "token","demo-token",
-               "name",req.getOrDefault("email","User"),"role","PATIENT");
-     }
-     @PostMapping("/register")
-     public Map<String,String> register(@RequestBody Map<String,String> req){
-         String email = req.get("email");
-         String password = req.get("password");
-         authService.register(email, password);
-       return Map.of(
-               "message","Registration successful",
-               "email",req.getOrDefault("email",""));
-     }
-     private final AuthService authService;
-     public AuthController(AuthService authService) {
-         this.authService = authService;
-     }
+
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
+    // =========================
+    // REGISTER
+    // =========================
+    @PostMapping("/register")
+    public ResponseEntity<?> register(
+            @RequestBody Map<String, String> req) {
+
+        try {
+            String email = req.get("email");
+            String password = req.get("password");
+
+            User user = authService.register(email, password);
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message", "Registration successful",
+                            "email", user.getEmail(),
+                            "role", user.getRole().name()
+                    )
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
+        }
+    }
+
+    // =========================
+    // LOGIN
+    // =========================
+    @PostMapping("/login")
+    public ResponseEntity<?> login(
+            @RequestBody Map<String, String> req) {
+
+        try {
+            String email = req.get("email");
+            String password = req.get("password");
+
+            String token = authService.login(email, password);
+
+            User user = authService.findByEmail(email);
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "token", token,
+                            "email", user.getEmail(),
+                            "role", user.getRole().name()
+                    )
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
+        }
+    }
 }
