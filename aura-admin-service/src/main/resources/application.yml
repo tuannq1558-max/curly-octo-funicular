@@ -1,0 +1,46 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: aura-admin-service
+
+  # Mac dinh dung H2 (in-memory), khong can cai database gi ca.
+  datasource:
+    url: jdbc:h2:mem:aura_admin_db;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aura_admin_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+aura:
+  jwt:
+    secret: "CHANGE_THIS_SECRET_KEY_TO_SOMETHING_LONG_AND_RANDOM_1234567890"
+    expiration-ms: 86400000

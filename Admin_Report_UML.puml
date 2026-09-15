@@ -1,0 +1,189 @@
+' ============================================================
+' MODULE: ADMIN + REPORT (TV5) - AURA SYSTEM
+' Cách dùng: dán từng block vào https://www.plantuml.com/plantuml/uml/
+' hoặc dùng extension "PlantUML" trong VS Code để render trực tiếp.
+' ============================================================
+
+
+' ==================== 1. USE CASE DIAGRAM ====================
+@startuml UC_Admin_Report
+left to right direction
+skinparam packageStyle rectangle
+title Use Case Diagram - Module Admin + Report
+
+actor Admin
+actor "AI Core / System" as System
+
+rectangle "Admin Management System" {
+
+  package "Quan ly tai khoan" {
+    usecase "UC1: Quan ly tai khoan User" as UC1
+    usecase "UC2: Quan ly tai khoan Doctor" as UC2
+    usecase "UC3: Quan ly tai khoan Clinic" as UC3
+    usecase "UC4: Duyet/Tu choi dang ky Clinic" as UC4
+    usecase "UC5: Dinh nghia Role & Permission" as UC5
+    usecase "UCx: Xac thuc quyen Admin" as UCx
+  }
+
+  package "Cau hinh he thong" {
+    usecase "UC6: Cau hinh tham so AI" as UC6
+    usecase "UC7: Quan ly template thong bao" as UC7
+  }
+
+  package "Quan ly dich vu" {
+    usecase "UC8: Quan ly goi dich vu" as UC8
+    usecase "UC9: Quan ly billing model" as UC9
+  }
+
+  package "Dashboard & Report" {
+    usecase "UC10: Xem Dashboard tong" as UC10
+    usecase "UC11: Xem System Analytics" as UC11
+    usecase "UC12: Xem/Xuat Audit Log" as UC12
+    usecase "UC13: Cau hinh Privacy/Compliance" as UC13
+  }
+}
+
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+Admin --> UC8
+Admin --> UC9
+Admin --> UC10
+Admin --> UC11
+Admin --> UC12
+Admin --> UC13
+
+UC1 ..> UCx : <<include>>
+UC2 ..> UCx : <<include>>
+UC3 ..> UCx : <<include>>
+UC4 ..|> UC3 : <<extend>>
+UC10 ..> UC11 : <<include>>
+
+System --> UC11 : cung cap du lieu
+System --> UC6 : ap dung threshold moi
+
+@enduml
+
+
+' ==================== 2. ACTIVITY DIAGRAM - Flow 1: Duyet Clinic ====================
+@startuml Flow1_DuyetClinic
+title Flow 1 - Duyet Clinic dang ky moi (UC4)
+
+start
+:Clinic gui don dang ky;
+:He thong tao notification cho Admin;
+:Admin xem ho so dang ky
+(thong tin to chuc, giay phep...);
+
+if (Ho so hop le?) then (Approve)
+  :Kich hoat Clinic account;
+  :Gui email thong bao chap thuan;
+else (Reject)
+  :Nhap ly do tu choi;
+  :Gui email thong bao tu choi;
+endif
+
+:Ghi Audit Log;
+stop
+
+@enduml
+
+
+' ==================== 3. ACTIVITY DIAGRAM - Flow 2: Cau hinh AI Threshold ====================
+@startuml Flow2_CauHinhAI
+title Flow 2 - Cau hinh AI Threshold (UC6)
+
+start
+:Admin vao trang System Config;
+:Chon tham so can chinh
+(vd: nguong risk "high");
+:Nhap gia tri moi;
+:He thong validate du lieu;
+
+if (Du lieu hop le?) then (yes)
+  :Luu cau hinh moi;
+  :Tang phien ban config (version++);
+  :Ap dung ngay khong downtime;
+  :Ghi Audit Log;
+else (no)
+  :Hien thi loi cho Admin;
+  stop
+endif
+
+stop
+
+@enduml
+
+
+' ==================== 4. ACTIVITY DIAGRAM - Flow 3: Xem Dashboard & Report ====================
+@startuml Flow3_Dashboard
+title Flow 3 - Xem Dashboard & Report (UC10, UC11)
+
+start
+:Admin dang nhap he thong;
+:Truy cap Dashboard;
+
+fork
+  :Query du lieu tu User module
+  (so user, so anh upload);
+fork again
+  :Query du lieu tu Doctor module
+  (so case da xu ly);
+fork again
+  :Query du lieu tu Clinic module
+  (usage theo tung clinic);
+fork again
+  :Query du lieu tu AI Core
+  (performance, error rate);
+end fork
+
+:Tong hop & cache du lieu
+(snapshot dinh ky);
+:Render bieu do / so lieu
+(< 3s theo NFR-3);
+
+if (Admin can drill-down chi tiet?) then (yes)
+  :Query real-time theo filter
+  (thoi gian / clinic / risk level);
+  :Cap nhat bieu do chi tiet;
+else (no)
+endif
+
+if (Admin muon xuat bao cao?) then (yes)
+  :Xuat file PDF/CSV;
+else (no)
+endif
+
+stop
+
+@enduml
+
+
+' ==================== 5. ACTIVITY DIAGRAM - Flow 4: Quan ly goi dich vu ====================
+@startuml Flow4_GoiDichVu
+title Flow 4 - Quan ly goi dich vu (UC8)
+
+start
+:Admin vao trang Service Package;
+
+if (Tao goi moi hay sua goi cu?) then (Tao moi)
+  :Nhap thong tin
+  (ten, so credit, gia, thoi han);
+  :Luu package moi;
+  :Package available cho User/Clinic mua;
+else (Sua/Deactivate)
+  :Chon package can sua;
+  :Cap nhat thong tin
+  hoac danh dau deactivate;
+  note right: Khong xoa cung\nde tranh vo lich su giao dich
+  :Luu thay doi;
+endif
+
+:Ghi Audit Log;
+stop
+
+@enduml
