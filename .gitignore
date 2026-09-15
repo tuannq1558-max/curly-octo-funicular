@@ -24,12 +24,8 @@ venv/
 uploads/
 logs/
 *.log
+data/
 
 # OS
 .DS_Store
 Thumbs.db
-
-# H2 database
-Code/Backend/data/
-Code/Backend/*.db
-Code/Backend/*.trace.db

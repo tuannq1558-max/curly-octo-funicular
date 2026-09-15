@@ -1,61 +1,101 @@
 package com.aura.controller;
 
 import com.aura.model.User;
-import com.aura.repo.UserRepository;
+import com.aura.service.AuthService;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    private final UserRepository users;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-    public AuthController(UserRepository users) {
-        this.users = users;
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
     }
 
+    // =========================
+    // REGISTER
+    // =========================
     @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public Map<String, Object> register(@RequestBody RegisterRequest request) {
-        if (users.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already exists");
+    public ResponseEntity<?> register(
+            @RequestBody Map<String, String> req) {
+
+        try {
+            String email = req.get("email");
+            String password = req.get("password");
+
+            User user = authService.register(email, password);
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message", "Registration successful",
+                            "email", user.getEmail(),
+                            "role", user.getRole().name()
+                    )
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
         }
-        User user = new User();
-        user.setEmail(request.email().trim().toLowerCase());
-        user.setPasswordHash(encoder.encode(request.password()));
-        user.setFullName(request.fullName().trim());
-        user.setRole("PATIENT");
-        user.setEnabled(true);
-        users.save(user);
-        return userResponse(user);
     }
 
+    // =========================
+    // LOGIN
+    // =========================
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody LoginRequest request) {
-        User user = users.findByEmail(request.email().trim().toLowerCase())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
-        if (!user.isEnabled() || !encoder.matches(request.password(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("Invalid email or password");
+    public ResponseEntity<?> login(
+            @RequestBody Map<String, String> req) {
+
+        try {
+            String email = req.get("email");
+            String password = req.get("password");
+
+            String token = authService.login(email, password);
+
+            User user = authService.findByEmail(email);
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "token", token,
+                            "email", user.getEmail(),
+                            "role", user.getRole().name()
+                    )
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
         }
-        Map<String, Object> response = userResponse(user);
-        response.put("token", "demo-session-token");
-        return response;
     }
 
-    private Map<String, Object> userResponse(User user) {
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("id", user.getId());
-        response.put("email", user.getEmail());
-        response.put("fullName", user.getFullName());
-        response.put("role", user.getRole());
-        return response;
-    }
+    // =========================
+    // CURRENT USER
+    // =========================
+    @GetMapping("/me")
+    public ResponseEntity<?> me(Authentication authentication) {
 
-    public record RegisterRequest(String email, String password, String fullName) {}
-    public record LoginRequest(String email, String password) {}
+        User user = (User) authentication.getPrincipal();
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "email", user.getEmail(),
+                        "role", user.getRole().name()
+                )
+        );
+    }
 }
