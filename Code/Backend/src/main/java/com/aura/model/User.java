@@ -20,6 +20,11 @@ public class User {
     @Column(nullable = false)
     private Role role = Role.PATIENT;
 
+    private String fullName;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
+
     public Long getId() {
         return id;
     }
@@ -46,5 +51,26 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    // Cho phép DataInitializer dùng setRole("DOCTOR")
+    public void setRole(String role) {
+        this.role = Role.valueOf(role.toUpperCase());
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

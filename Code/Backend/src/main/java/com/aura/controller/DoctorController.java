@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.aura.model.Role;
 
 @RestController
 @RequestMapping("/api/doctor")
@@ -39,7 +40,7 @@ public class DoctorController {
                 .orElseThrow(() -> new IllegalArgumentException("Image not found"));
         User doctor = users.findById(request.doctorId())
                 .orElseThrow(() -> new IllegalArgumentException("Doctor not found"));
-        if (!"DOCTOR".equalsIgnoreCase(doctor.getRole())) {
+        if (doctor.getRole() != Role.DOCTOR) {
             throw new IllegalArgumentException("Account is not a doctor");
         }
         if (assessments.existsByImageId(imageId)) {
